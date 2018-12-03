@@ -12,6 +12,10 @@ void printDateTime(const RtcDateTime& dt);
 
 #define countof(a) (sizeof(a) / sizeof(a[0]))
 
+int hour = 12;
+int minute = 0;
+bool enabled = false;
+
 void setup() {
   Serial.begin(115200);
   Serial.println("Hello world");
@@ -27,19 +31,32 @@ void setup() {
 
   if (!player.begin(
           player_serial)) {  // Use softwareSerial to communicate with mp3.
-    Serial.println(F("Unable to begin:"));
-    Serial.println(F("1.Please recheck the connection!"));
-    Serial.println(F("2.Please insert the SD card!"));
+    Serial.println(F("Unable to begin"));
     while (true) {
       delay(0);  // Code to compatible with ESP8266 watch dog.
     }
   }
   Serial.println(F("DFPlayer Mini online."));
 
-  player.volume(30);  // Set volume value. From 0 to 30
-  player.loop(1);     // Play the first mp3
+  player.volume(0);  // Set volume value. From 0 to 30
 
   rtc_begin();
+}
+
+void sendPadded(Print* p, int d, int pad) {
+  String s(d);
+  for (int i = 0; i + int(s.length()) < pad; i++) {
+    p->print('0');
+  }
+  p->print(s);
+}
+
+void sendStatus() {
+  Serial.println("Sending stats");
+  Serial1.print("stat");
+  sendPadded(&Serial1, hour, 2);
+  sendPadded(&Serial1, minute, 2);
+  Serial1.println(int(enabled));
 }
 
 void loop() {
@@ -50,25 +67,30 @@ void loop() {
       cmd = cmd.substring(0, cmd.length() - 1);
     }
     Serial.println(cmd);
-    if (cmd == "stop") {
-      Serial.println(F("Stop"));
-      player.stop();
-    } else if (cmd == "start") {
-      Serial.println(F("Start @1"));
-      player.loop(1);
-    } else if (cmd == "volup") {
-      Serial.println(F("Volume up"));
-      player.volumeUp();
-    } else if (cmd == "voldown") {
-      Serial.println(F("Volume down"));
-      player.volumeDown();
-    } else if (cmd == "next") {
-      player.next();
+    String verb = cmd.substring(0, 4);
+    if (verb == "stat") {
+      sendStatus();
+    } else if (verb == "sttm") {
+      int newhour = cmd.substring(4, 6).toInt();
+      int newminute = cmd.substring(6, 8).toInt();
+      if (newhour >= 0 && newhour < 24 && newminute >= 0 && newminute < 60) {
+        hour = newhour;
+        minute = newminute;
+      }
+      Serial.print(F("New time:"));
+      sendPadded(&Serial, hour, 2);
+      Serial.print(F(":"));
+      sendPadded(&Serial, minute, 2);
+      Serial.println("");
+      sendStatus();
+    } else if (verb == "swtc") {
+      if (cmd[4] == '0' || cmd[4] == '1') {
+        enabled = (cmd[4] == '1');
+      }
+      Serial.print(F("New enabled: "));
+      Serial.println(int(enabled));
+      sendStatus();
     }
-    Serial.print(F("Playing "));
-    Serial.print(player.readCurrentFileNumber());
-    Serial.print(F(" at volume "));
-    Serial.println(player.readVolume());
   }
 
   static unsigned long timer = millis();
