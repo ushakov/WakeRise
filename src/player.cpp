@@ -4,17 +4,20 @@
 #include <DFRobotDFPlayerMini.h>
 #include <SoftwareSerial.h>
 
+#include "debug.h"
+
 const double kStartSoundAt = 0.7;
 
 SoftwareSerial player_serial(8, 9);  // RX, TX
 DFRobotDFPlayerMini player;
 bool player_started = false;
+int current_volume = 0;
 
 void player_begin(){
   player_serial.begin(9600);
   if (!player.begin(
           player_serial)) {  // Use softwareSerial to communicate with mp3.
-    Serial.println(F("Unable to begin"));
+    if (debug) Serial.println(F("Unable to begin"));
     while (true) {
       delay(0);  // Code to compatible with ESP8266 watch dog.
     }
@@ -29,16 +32,21 @@ void player_set(double timepos) {
   }
   if (!player_started) {
     player.volume(0);
+    current_volume = 0;
     player.play(1);
     player.loop(2);
-    player.start();
     player_started = true;
-    Serial.println("Player starting");
+    if (debug) Serial.println("Player starting");
   }
   timepos = (timepos - kStartSoundAt) / (1 - kStartSoundAt);
   int volume = int(timepos * 30);
-  player.volume(volume);
-  Serial.print("Player volume set to "); Serial.println(volume);
+  if (current_volume != volume) {
+    current_volume = volume;
+    player.volume(volume);
+    if (debug) {
+      Serial.print("Player volume set to "); Serial.println(volume);
+    }
+  }
 }
 
 void player_off() {

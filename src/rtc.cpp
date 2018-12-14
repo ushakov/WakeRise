@@ -34,3 +34,9 @@ void rtc_begin() {
 RtcDateTime rtc_now() { 
     return rtc.GetDateTime(); 
 }
+
+void rtc_set_time(int hour, int minute, int second) {
+  RtcDateTime old = rtc_now();
+  RtcDateTime set = RtcDateTime(old.Year(), old.Month(), old.Day(), hour, minute, second);
+  rtc.SetDateTime(set);
+}

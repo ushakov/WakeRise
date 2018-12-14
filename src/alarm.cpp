@@ -4,12 +4,13 @@
 
 #include "player.h"
 #include "leds.h"
+#include "debug.h"
 
 #define HOUR_ADDR 0
 #define MINUTE_ADDR 1
 #define ENABLED_ADDR 2
 
-const int kTotalMinutes = 1;
+const int kTotalMinutes = 5;
 
 bool alarm_ringing = false;
 long start_millis = 0;
@@ -32,7 +33,7 @@ void alarm_begin() {
 
   if (hour < 0 || hour > 23 || minute < 0 || minute > 59 ||
       (int_enabled != 0 && int_enabled != 1)) {
-    Serial.println(F("Bad EEPROM values, set defaults"));
+    if (debug) Serial.println(F("Bad EEPROM values, set defaults"));
     hour = 12;
     minute = 0;
     enabled = false;

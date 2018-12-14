@@ -2,7 +2,9 @@
 
 #include <FastLED.h>
 
-#define LED_PIN 3
+#include "debug.h"
+
+#define LED_PIN 10
 
 #define NUM_LEDS 60
 #define kNumColumns 4
@@ -13,7 +15,7 @@
 
 CRGB leds[NUM_LEDS];
 
-uint8_t redList[] = {
+const uint8_t redList[] PROGMEM = {
     0,   8,   17,  26,  35,  43,  52,  61,  70,  79,  87,  96,  105, 114, 123,
     131, 140, 149, 158, 167, 175, 184, 193, 202, 211, 219, 228, 237, 246, 255,
     255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255,
@@ -34,7 +36,7 @@ uint8_t redList[] = {
     163, 162, 162, 161, 161, 160, 159, 159, 158, 158, 157, 157, 156, 155, 155,
     154, 154, 153, 152, 152, 151, 151, 150, 150, 149, 148, 147, 146, 145, 144,
     142, 141, 140, 139, 138, 137, 136, 135, 134, 133, 132, 131, 130, 129, 128};
-uint8_t greenList[] = {
+const uint8_t greenList[] PROGMEM = {
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
     0,   2,   4,   6,   8,   10,  13,  15,  17,  19,  21,  23,  26,  28,  30,
@@ -55,7 +57,7 @@ uint8_t greenList[] = {
     150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150, 150,
     150, 150, 150, 150, 150, 150, 150, 150, 150, 149, 148, 147, 146, 145, 144,
     142, 141, 140, 139, 138, 137, 136, 135, 134, 133, 132, 131, 130, 129, 128};
-uint8_t blueList[] = {
+const uint8_t blueList[] PROGMEM = {
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
     0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,
@@ -77,10 +79,13 @@ uint8_t blueList[] = {
     221, 222, 224, 225, 226, 228, 229, 230, 232, 233, 234, 235, 236, 237, 238,
     240, 241, 242, 243, 244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 255};
 
+int last_rep = 0;
+
 void leds_begin() {
   FastLED.addLeds<CHIPSET, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS)
       .setCorrection(TypicalSMD5050);
   FastLED.setBrightness(255);
+  last_rep = 0;
 }
 
 uint8_t XY(uint8_t x, uint8_t y) {
@@ -94,7 +99,7 @@ uint8_t XY(uint8_t x, uint8_t y) {
   return i;
 }
 
-float interpolate(float pos, uint8_t *array, int n) {
+float interpolate(float pos, const uint8_t * PROGMEM array, int n) {
   int low = floor(pos);
   int high = low + 1;
   float r = pos - low;
@@ -102,18 +107,26 @@ float interpolate(float pos, uint8_t *array, int n) {
   if (low >= n) low = n;
   if (high < low) high = low;
   if (high >= n) high = n;
-  return array[low] * (1 - r) + array[high] * r;
+  return pgm_read_byte(array + low) * (1 - r) + pgm_read_byte(array + high) * r;
 }
 
+const float kFullOn = 30.0;
+
 void leds_set(double timepos) {
-  float pos = timepos * 256;
-  float height = kStripHeight * (1 - timepos / 0.2);
+  float pos = timepos * 110;
+  if (pos > 110) pos = 110;
+
+  float height = kStripHeight * (1 - pos / kFullOn);
+  float coef0;
   for (int h = 0; h < kStripHeight; h++) {
     for (int c = 0; c < kNumColumns; c++) {
       int i = XY(c, h);
       float coef = 1;
-      if (h < height) {
-        coef = max(0, 1 - 0.2 * (height - h));
+      if (height > 0) {
+        coef = 1 - height / kStripHeight;
+        if (h + 1 < height) {
+          coef *= (h + 1) / height;
+        }
       }
       leds[i].r = coef * interpolate(pos, redList, 300);
       leds[i].g = coef * interpolate(pos, greenList, 300);
@@ -121,7 +134,16 @@ void leds_set(double timepos) {
     }
   }
   FastLED.show();
-  Serial.print("LEDs set to "); Serial.print(pos); Serial.println("/256");
+  if (debug) {
+    int rep = int(pos);
+    if (rep != last_rep) {
+      Serial.print(F("LEDs set to ")); 
+      Serial.print(pos);
+      Serial.print(F(" time="));
+      Serial.println(timepos);
+      last_rep = rep;
+    }
+  }
 }
 
 void leds_off() {
