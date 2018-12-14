@@ -5,7 +5,6 @@ import android.bluetooth.BluetoothDevice;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
-import android.util.TimeUtils;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -14,6 +13,8 @@ import com.harrysoft.androidbluetoothserial.BluetoothManager;
 import com.harrysoft.androidbluetoothserial.BluetoothSerialDevice;
 import com.harrysoft.androidbluetoothserial.SimpleBluetoothDeviceInterface;
 
+import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -46,16 +47,29 @@ public class MainActivity extends AppCompatActivity {
         onSwitch.setOnClickListener(v -> {
             int id = onSwitch.isChecked() ? 1 : 0;
             bluetoothDevice.sendMessage("swtc" + id + "\n");
+            sendCurrentTime();
         });
 
         timeDisplay = findViewById(R.id.time_display);
         timeDisplay.setOnClickListener(v -> {
             TimePickerDialog timePickerDialog = new TimePickerDialog(
                     this,
-                    (view, hourOfDay, minute) -> bluetoothDevice.sendMessage(String.format("sttm%02d%02d\n", hourOfDay, minute)),
+                    (view, hourOfDay, minute) -> {
+                        bluetoothDevice.sendMessage(String.format("sttm%02d%02d\n", hourOfDay, minute));
+                        sendCurrentTime();
+                    },
                     hours, minutes, true);
             timePickerDialog.show();
         });
+    }
+
+    private void sendCurrentTime() {
+        Calendar c = GregorianCalendar.getInstance();
+        int hr = c.get(Calendar.HOUR_OF_DAY);
+        int mn = c.get(Calendar.MINUTE);
+        int sec = c.get(Calendar.SECOND);
+        log.info("Current time: "+ hr + ":" + mn + ":" + sec);
+        bluetoothDevice.sendMessage(String.format("tmnw%02d%02d%02d\n", hr, mn, sec));
     }
 
     @Override
